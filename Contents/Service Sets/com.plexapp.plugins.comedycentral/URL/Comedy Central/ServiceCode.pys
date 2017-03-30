@@ -1,3 +1,6 @@
+import HTMLParser
+HTML_PARSER = HTMLParser.HTMLParser()
+
 META_URL = 'http://media.mtvnservices.com/pmt/e1/access/index.html?uri=%s&configtype=edge'
 MEDIA_URL = 'http://media-utils.mtvnservices.com/services/MediaGenerator/%s?device=iPad&format=json'
 URI = 'mgid:arc:%s:comedycentral.com:%s'
@@ -10,10 +13,23 @@ def NormalizeURL(url):
 	return url.split('?')[0]
 
 ####################################################################################################
+def ObjectFromURL_USProxy(hurl, url):
+
+	post_values = { 'http_url' : hurl, 'http_referer' : url, 'http_showbody' : 1 }	
+	page = HTTP.Request('http://www.askapache.com/online-tools/http-headers-tool/', cacheTime=CACHE_1HOUR, values=post_values, method='POST').content		
+	body = HTML_PARSER.unescape(Regex(r"<pre title=\"showbody\".*>([\S\s]*)<\/pre>").search(page).group(1))
+	json_obj = JSON.ObjectFromString(body)
+	return json_obj
+
+####################################################################################################
 def MetadataObjectForURL(url):
 
-	json_obj = JSON.ObjectFromURL(META_URL % (GetURI(url)), cacheTime=CACHE_1HOUR, headers={'Referer': url})['feed']
-
+	hurl = META_URL % (GetURI(url))
+	
+	#json_obj = JSON.ObjectFromURL(hurl, cacheTime=CACHE_1HOUR, headers={'Referer': url})
+	json_obj = ObjectFromURL_USProxy(hurl, url)	
+	json_obj = json_obj['feed']
+	
 	duration = 0
 
 	for item in json_obj['items']:
@@ -31,7 +47,12 @@ def MetadataObjectForURL(url):
 @deferred
 def MediaObjectsForURL(url):
 
-	json_obj = JSON.ObjectFromURL(META_URL % (GetURI(url)), cacheTime=CACHE_1HOUR, headers={'Referer': url})['feed']
+	hurl = META_URL % (GetURI(url))
+	
+	#json_obj = JSON.ObjectFromURL(hurl, cacheTime=CACHE_1HOUR, headers={'Referer': url})
+	json_obj = ObjectFromURL_USProxy(hurl, url)	
+	json_obj = json_obj['feed']
+	
 	available_streams = {}
 
 	# Check for geoblocks or errors
